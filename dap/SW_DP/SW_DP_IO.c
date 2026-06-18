@@ -65,7 +65,7 @@ static inline void SW_CLOCK_CYCLE()
 static inline void SW_WRITE_BIT1(uint8_t bit)
 {
   register uint32_t data = bit & 0x01;
-  register uint32_t dest_addr = (uint32_t)(&PIN_GPIO->DO[0].CLEAR) - (data)*4;
+  register uint32_t dest_addr = (uint32_t)(&PIN_GPIO->DO[0].CLEAR) - (data) * 4;
   *(volatile uint32_t *)dest_addr = PIN_SWDIO_OFFSET;
   COMPILER_BARRIER();
   PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
@@ -89,7 +89,7 @@ static inline void SW_WRITE_BIT(uint8_t bit)
   // __asm volatile("nop");
   // __asm volatile("nop");
   PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-  __asm volatile("nop");
+  // __asm volatile("nop");
   // __asm volatile("nop");
   // __asm volatile("nop");
 }
@@ -304,30 +304,57 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi)
   SW_WRITE_BIT(x);   \
   x >>= 1
 
-#define READ_BIT()                                          \
-  COMPILER_BARRIER();                                       \
-  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;                 \
-  COMPILER_BARRIER();                                       \
-  __asm volatile("nop");                                    \
-  __asm volatile("nop");                                    \
-  __asm volatile("nop");                                    \
-  __asm volatile("nop");                                    \
-  __asm volatile("nop");                                    \
-  COMPILER_BARRIER();                                       \
-  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;                   \
-  COMPILER_BARRIER();                                       \
-  __asm volatile("nop");                                    \
-  COMPILER_BARRIER();                                       \
-  bit = PIN_GPIO->DI[0].VALUE;                              \
-  COMPILER_BARRIER();                                       \
-  __asm__ __volatile__(                                     \
-      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */          \
-      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */            \
-      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */           \
-      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */          \
-      "or    %1, %1, %0\n\t" /* val = val | bit */          \
+#define READ_ACK()                                     \
+  COMPILER_BARRIER();                                  \
+  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;            \
+  COMPILER_BARRIER();                                  \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  COMPILER_BARRIER();                                  \
+  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;              \
+  COMPILER_BARRIER();                                  \
+  __asm volatile("nop");                               \
+  COMPILER_BARRIER();                                  \
+  bit = PIN_GPIO->DI[0].VALUE;                         \
+  COMPILER_BARRIER();                                  \
+  __asm__ __volatile__(                                \
+      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */     \
+      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */       \
+      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */      \
+      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */     \
+      "or    %1, %1, %0\n\t" /* val = val | bit */     \
+      : "+r"(bit), "+r"(ack) /* bit 和 val 都是读写 */ \
+      :                                                \
+      : "memory")
+
+#define READ_BIT()                                     \
+  COMPILER_BARRIER();                                  \
+  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;            \
+  COMPILER_BARRIER();                                  \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  __asm volatile("nop");                               \
+  COMPILER_BARRIER();                                  \
+  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;              \
+  COMPILER_BARRIER();                                  \
+  __asm volatile("nop");                               \
+  COMPILER_BARRIER();                                  \
+  bit = PIN_GPIO->DI[0].VALUE;                         \
+  COMPILER_BARRIER();                                  \
+  __asm__ __volatile__(                                \
+      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */     \
+      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */       \
+      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */      \
+      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */     \
+      "or    %1, %1, %0\n\t" /* val = val | bit */     \
       : "+r"(bit), "+r"(val) /* bit 和 val 都是读写 */ \
-      :                                                     \
+      :                                                \
       : "memory")
 
 #define REPEAT_8(x) \
@@ -351,7 +378,7 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi)
 
 static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
 {
-  uint32_t ack;
+  uint32_t ack = 0;
   uint32_t bit;
   uint32_t val;
   uint32_t parity;
@@ -377,6 +404,7 @@ static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
   header >>= 1;
   SW_WRITE_BIT(header); /* Park Bit */
   __asm volatile("nop");
+
   /* Turnaround */
   PIN_SWDIO_OUT_DISABLE();
   n = DAP_Data.swd_conf.turnaround;
@@ -386,11 +414,7 @@ static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
     n--;
   } while (n);
 
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
+  // uint32_t irq_status = disable_global_irq(CSR_MSTATUS_MIE_MASK);
 
   /* Acknowledge response */
   bit = SW_READ_BIT();
@@ -399,6 +423,10 @@ static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
   ack |= bit << 1;
   bit = SW_READ_BIT();
   ack |= bit << 2;
+  // READ_ACK();
+  // READ_ACK();
+  // READ_ACK();
+  // ack >>= 29;
 
   if (ack == DAP_TRANSFER_OK)
     goto label_ok;
@@ -498,7 +526,7 @@ label_error:
 
 static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
 {
-  uint32_t ack;
+  uint32_t ack = 0;
   uint32_t bit;
   uint32_t val;
   uint32_t parity;
@@ -532,27 +560,32 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
     SW_CLOCK_CYCLE();
     n--;
   } while (n);
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
-  __asm volatile("nop");
+  uint32_t irq_status = disable_global_irq(CSR_MSTATUS_MIE_MASK);
 
   /* Acknowledge response */
-  bit = SW_READ_BIT();
-  ack = bit << 0;
-  bit = SW_READ_BIT();
-  ack |= bit << 1;
-  bit = SW_READ_BIT();
-  ack |= bit << 2;
+  // bit = SW_READ_BIT();
+  // ack = bit << 0;
+  // bit = SW_READ_BIT();
+  // ack |= bit << 1;
+  // bit = SW_READ_BIT();
+  // ack |= bit << 2;
+
+  READ_ACK();
+  READ_ACK();
+  READ_ACK();
+  ack >>= 29;
+  restore_global_irq(irq_status);
 
   if (ack == DAP_TRANSFER_OK)
   {
     /* Turnaround */
-    for (n = DAP_Data.swd_conf.turnaround; n; n--)
+    n = DAP_Data.swd_conf.turnaround;
+    do
     {
       SW_CLOCK_CYCLE();
-    }
+      n--;
+    } while (n);
+
     PIN_SWDIO_OUT_ENABLE();
     /* Write data */
     val = *data;
@@ -561,10 +594,7 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
     REPEAT_8(WRITE_BIT(val));
     REPEAT_8(WRITE_BIT(val));
     REPEAT_8(WRITE_BIT(val));
-    REPEAT_7(WRITE_BIT(val));
-
-    SW_WRITE_BIT(val);
-    __asm volatile("nop");
+    REPEAT_8(WRITE_BIT(val));
 
     SW_WRITE_BIT(parity); /* Write Parity Bit */
     __asm volatile("nop");
@@ -584,6 +614,9 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
         SW_CLOCK_CYCLE();
       }
     }
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
   }
 
   else if ((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT))
@@ -596,6 +629,9 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
       SW_CLOCK_CYCLE();
       n--;
     } while (n);
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
   }
   else
   {
@@ -604,10 +640,10 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
     {
       SW_CLOCK_CYCLE(); /* Back off data phase */
     }
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
   }
-  PIN_SWDIO_OUT_ENABLE();
-  PIN_SWDIO_OUT(1U);
-  return ((uint8_t)ack);
 }
 
 uint8_t SWD_Read(uint8_t header, uint32_t *data)

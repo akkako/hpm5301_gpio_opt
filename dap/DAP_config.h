@@ -64,6 +64,9 @@ This information includes:
 #define __WEAK __attribute__((weak))
 #endif
 
+#define COMPILER_BARRIER() asm volatile("" :: \
+                                            : "memory")
+
 /// Processor Clock of the Cortex-M MCU used in the Debug Unit.
 /// This value is used to calculate the SWD/JTAG clock speed.
 #define CPU_CLOCK 36000000U ///< Specifies the CPU Clock in Hz.
@@ -508,13 +511,15 @@ called prior \ref PIN_SWDIO_OUT function calls.
 */
 __STATIC_FORCEINLINE void PIN_SWDIO_OUT_ENABLE(void)
 {
+  COMPILER_BARRIER();
     gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), 1);
     // HPM_IOC->PAD[PIN_TMS].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0); /* as gpio*/
     // HPM_IOC->PAD[PIN_TMS].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1);
+  COMPILER_BARRIER();
     gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TMS), GPIO_GET_PIN_INDEX(PIN_TMS));
+  COMPILER_BARRIER();
     // __asm volatile("fence io, io");
-    // __asm volatile("nop");
-    // __asm volatile("nop");
+
 }
 
 /** SWDIO I/O pin: Switch to Input mode (used in SWD mode only).
@@ -523,13 +528,14 @@ called prior \ref PIN_SWDIO_IN function calls.
 */
 __STATIC_FORCEINLINE void PIN_SWDIO_OUT_DISABLE(void)
 {
+  COMPILER_BARRIER();
     gpio_set_pin_input(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TMS), GPIO_GET_PIN_INDEX(PIN_TMS));
+  COMPILER_BARRIER();
     gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), 0);
+  COMPILER_BARRIER();
     // HPM_IOC->PAD[PIN_TMS].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
     // HPM_IOC->PAD[PIN_TMS].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2);
     // __asm volatile("fence io, io");
-    // __asm volatile("nop");
-    // __asm volatile("nop");
 }
 
 // TDI Pin I/O ---------------------------------------------

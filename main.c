@@ -10,13 +10,15 @@
 #include <hpm_gpiom_drv.h>
 #include <hpm_romapi.h>
 
-static void serial_number_init(void) {
+static void serial_number_init(void)
+{
 #define OTP_CHIP_UUID_IDX_START (88U)
-#define OTP_CHIP_UUID_IDX_END   (91U)
+#define OTP_CHIP_UUID_IDX_END (91U)
     uint32_t uuid_words[4];
 
     uint32_t word_idx = 0;
-    for (uint32_t i = OTP_CHIP_UUID_IDX_START; i <= OTP_CHIP_UUID_IDX_END; i++) {
+    for (uint32_t i = OTP_CHIP_UUID_IDX_START; i <= OTP_CHIP_UUID_IDX_END; i++)
+    {
         uuid_words[word_idx++] = ROM_API_TABLE_ROOT->otp_driver_if->read_from_shadow(i);
     }
 
@@ -25,15 +27,26 @@ static void serial_number_init(void) {
 }
 
 ATTR_ALWAYS_INLINE
-static inline void SWDIO_DIR_Init(void) {
+static inline void SWDIO_DIR_Init(void)
+{
     HPM_IOC->PAD[SWDIO_DIR].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
+    HPM_IOC->PAD[SWDIO_DIR].PAD_CTL = IOC_PAD_PAD_CTL_HYS_SET(0) | // hysteresis disable
+                                      IOC_PAD_PAD_CTL_PRS_SET(0) | // pull-up 100k
+                                      IOC_PAD_PAD_CTL_PS_SET(1) |  // pull-up
+                                      IOC_PAD_PAD_CTL_PE_SET(1) |  // pull enable
+                                      IOC_PAD_PAD_CTL_KE_SET(0) |  // keeper disable
+                                      IOC_PAD_PAD_CTL_OD_SET(0) |  // open drain disable
+                                      IOC_PAD_PAD_CTL_SR_SET(1) |  // Fast slew rate
+                                      IOC_PAD_PAD_CTL_SPD_SET(3) | // Fastest slew rate
+                                      IOC_PAD_PAD_CTL_DS_SET(4);   // drive strength 39 ohm(3.3V)
 
     gpiom_set_pin_controller(HPM_GPIOM, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), PIN_GPIOM);
     gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR));
     gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), 1);
 }
 
-static void EWDG_Init() {
+static void EWDG_Init()
+{
     clock_add_to_group(clock_watchdog0, 0);
     ewdg_config_t config;
     ewdg_get_default_config(HPM_EWDG0, &config);
@@ -49,12 +62,14 @@ static void EWDG_Init() {
 
     /* Initialize the WDG */
     hpm_stat_t status = ewdg_init(HPM_EWDG0, &config);
-    if (status != status_success) {
+    if (status != status_success)
+    {
         printf(" EWDG initialization failed, error_code=%d\n", status);
     }
 }
 
-int main() {
+int main()
+{
     board_init();
     EWDG_Init();
     board_delay_ms(500);
@@ -73,7 +88,8 @@ int main() {
 
     bl_setting.fail_cnt = 0;
 
-    while (true) {
+    while (true)
+    {
         ewdg_refresh(HPM_EWDG0);
         chry_dap_handle();
         chry_dap_usb2uart_handle();

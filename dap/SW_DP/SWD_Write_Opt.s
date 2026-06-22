@@ -132,6 +132,8 @@ SWD_Write_Opt:
     li      t2, SWDIO_OFFSET            # t2 = SWDIO 偏移位定义
     mv      a0, zero                    # a0 = 0
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
+    mv      t4, a1                      # turnaround 计数
+    nop
 
 # turnaround 周期
 # used register:
@@ -140,6 +142,126 @@ SWD_Write_Opt:
 # t2 -- SWDIO_OFFSET
 # t3 -- SWCLK_OFFSET
 # t4 -- turnaround
+# 按照 BTFN 模型优化分支预测
+# 输入 t4 = turnaround 周期数 (1-3)，绝大多数为 1
 
+    sw      t1, FGPIO_DO_CLR_OFFSET(t0) # 设置 SWDIR 低电平（外部三态输入）
+    sw      t2, FGPIO_OE_CLR_OFFSET(t0) # 设置 SWDIO 为输入
 
+#---------------- trn cycle 1 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    beqz    t4, 1f                      # 向后跳转 BTFN 预测跳转
+#---------------- trn cycle 2 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    beqz    t4, 1f                      # 向后跳转 BTFN 预测跳转
+#---------------- trn cycle 3 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    nop
+1:
+
+# 读取 ACK
+# used register:
+# a0 -- ACK result
+# a5 -- read temp
+# a6 -- calc temp
+# a7 -- calc temp
+# t0 -- FGPIO_BASE
+# t1 -- SWDIR_OFFSET
+# t2 -- SWDIO_OFFSET
+# t3 -- SWCLK_OFFSET
+
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    lw      a5, FGPIO_DI_VAL_OFFSET(t0) # 读取 DI.VALUE
+    srli    a5, a5, (SWDIO_SHIFT-0)     # 将 SWDIO 数据移到 BIT0
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    andi    a0, a5, 1                   # 提取 BIT0
+    nop
+
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    lw      a5, FGPIO_DI_VAL_OFFSET(t0) # 读取 DI.VALUE
+    srli    a5, a5, (SWDIO_SHIFT-1)     # 将 SWDIO 数据移到 BIT1
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    andi    a5, a5, 2                   # 提取 BIT1
+    or      a0, a0, a5                  # 将 BIT1 载入 a0
+
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    lw      a5, FGPIO_DI_VAL_OFFSET(t0) # 读取 DI.VALUE
+    srli    a5, a5, (SWDIO_SHIFT-2)     # 将 SWDIO 数据移到 BIT2
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    andi    a5, a5, 4                   # 提取 BIT2
+    or      a0, a0, a5                  # 将 BIT2 载入 a0
+
+# turnaround 周期
+# used register:
+# t0 -- FGPIO_BASE
+# t1 -- SWDIR_OFFSET
+# t2 -- SWDIO_OFFSET
+# t3 -- SWCLK_OFFSET
+# t4 -- turnaround
+# 按照 BTFN 模型优化分支预测
+# 输入 t4 = turnaround 周期数 (1-3)，绝大多数为 1
+
+    mv      t4, a1                      # turnaround 计数
+
+    sw      t2, FGPIO_OE_SET_OFFSET(t0) # 设置 SWDIO 为输出
+    sw      t1, FGPIO_DO_SET_OFFSET(t0) # 设置 SWDIR 高电平（外部三态输出）
+
+#---------------- trn cycle 1 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    beqz    t4, 1f                      # 向后跳转 BTFN 预测跳转
+#---------------- trn cycle 2 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    beqz    t4, 1f                      # 向后跳转 BTFN 预测跳转
+#---------------- trn cycle 3 ----------------
+    sw      t3, FGPIO_DO_CLR_OFFSET(t0) # --- SWCLK 拉低
+    nop
+    addi    t4, t4, -1                  # turnaround--
+    sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高
+    nop
+    nop
+1:
+
+# ACK 结果分支
+# ACK_OK(001) 可能性最高
+# ACK_WAIT(010) 可能性次之
+# ACK_FAULT(100) 可能性较小
+# ACK_ERROR(other) 可能性最小，不考虑性能优化
+    li      t4, ACK_OK_MASK             # 加载比较数值
+    beq     t4, a0, .Lack_ok            # 跳转到 ACK_OK 分支
+    li      t4, ACK_WAIT_MASK           # 加载比较数值
+    beq     t4, a0, .Lack_wait          # 跳转到 ACK_WAIT 分支
+    li      t4, ACK_FAULT_MASK          # 加载比较数值
+    beq     t4, a0, .Lack_fault         # 跳转到 ACK_FAULT 分支
+    j       .Lack_error
+
+.Lack_ok:
+    ret
+
+.Lack_wait:
+    ret
+
+.Lack_fault:
+    ret
+
+.Lack_error:
     ret

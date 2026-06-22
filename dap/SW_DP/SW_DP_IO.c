@@ -28,6 +28,7 @@
 #include "hpm_interrupt.h"
 #include "DAP_config.h"
 #include "DAP.h"
+#include "SW_DP.h"
 
 #define COMPILER_BARRIER() asm volatile("" :: \
                                             : "memory")
@@ -65,7 +66,7 @@ static inline void SW_CLOCK_CYCLE()
 static inline void SW_WRITE_BIT1(uint8_t bit)
 {
   register uint32_t data = bit & 0x01;
-  register uint32_t dest_addr = (uint32_t)(&PIN_GPIO->DO[0].CLEAR) - (data) * 4;
+  register uint32_t dest_addr = (uint32_t)(&PIN_GPIO->DO[0].CLEAR) - (data)*4;
   *(volatile uint32_t *)dest_addr = PIN_SWDIO_OFFSET;
   COMPILER_BARRIER();
   PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
@@ -89,8 +90,8 @@ static inline void SW_WRITE_BIT(uint8_t bit)
   // __asm volatile("nop");
   // __asm volatile("nop");
   PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-  // __asm volatile("nop");
-  // __asm volatile("nop");
+  __asm volatile("nop");
+  __asm volatile("nop");
   // __asm volatile("nop");
 }
 
@@ -304,57 +305,69 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi)
   SW_WRITE_BIT(x);   \
   x >>= 1
 
-#define READ_ACK()                                     \
-  COMPILER_BARRIER();                                  \
-  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;            \
-  COMPILER_BARRIER();                                  \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  COMPILER_BARRIER();                                  \
-  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;              \
-  COMPILER_BARRIER();                                  \
-  __asm volatile("nop");                               \
-  COMPILER_BARRIER();                                  \
-  bit = PIN_GPIO->DI[0].VALUE;                         \
-  COMPILER_BARRIER();                                  \
-  __asm__ __volatile__(                                \
-      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */     \
-      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */       \
-      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */      \
-      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */     \
-      "or    %1, %1, %0\n\t" /* val = val | bit */     \
+#define READ_ACK()                                          \
+  COMPILER_BARRIER();                                       \
+  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;                 \
+  COMPILER_BARRIER();                                       \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  COMPILER_BARRIER();                                       \
+  bit = PIN_GPIO->DI[0].VALUE;                              \
+  COMPILER_BARRIER();                                       \
+  COMPILER_BARRIER();                                       \
+  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;                   \
+  COMPILER_BARRIER();                                       \
+  __asm__ __volatile__(                                     \
+      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */          \
+      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */            \
+      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */           \
+      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */          \
+      "or    %1, %1, %0\n\t" /* val = val | bit */          \
       : "+r"(bit), "+r"(ack) /* bit 和 val 都是读写 */ \
-      :                                                \
+      :                                                     \
       : "memory")
 
-#define READ_BIT()                                     \
-  COMPILER_BARRIER();                                  \
-  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;            \
-  COMPILER_BARRIER();                                  \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  __asm volatile("nop");                               \
-  COMPILER_BARRIER();                                  \
-  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;              \
-  COMPILER_BARRIER();                                  \
-  __asm volatile("nop");                               \
-  COMPILER_BARRIER();                                  \
-  bit = PIN_GPIO->DI[0].VALUE;                         \
-  COMPILER_BARRIER();                                  \
-  __asm__ __volatile__(                                \
-      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */     \
-      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */       \
-      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */      \
-      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */     \
-      "or    %1, %1, %0\n\t" /* val = val | bit */     \
+#define READ_BIT()                                          \
+  COMPILER_BARRIER();                                       \
+  PIN_GPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;                 \
+  COMPILER_BARRIER();                                       \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  __asm volatile("nop");                                    \
+  COMPILER_BARRIER();                                       \
+  bit = PIN_GPIO->DI[0].VALUE;                              \
+  COMPILER_BARRIER();                                       \
+  COMPILER_BARRIER();                                       \
+  PIN_GPIO->DO[0].SET = PIN_SWCLK_OFFSET;                   \
+  COMPILER_BARRIER();                                       \
+  __asm__ __volatile__(                                     \
+      "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */          \
+      "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */            \
+      "srli  %1, %1, 1\n\t"  /* val = val >> 1 */           \
+      "slli  %0, %0, 31\n\t" /* bit = bit << 31 */          \
+      "or    %1, %1, %0\n\t" /* val = val | bit */          \
       : "+r"(bit), "+r"(val) /* bit 和 val 都是读写 */ \
-      :                                                \
+      :                                                     \
       : "memory")
 
 #define REPEAT_8(x) \
@@ -397,14 +410,11 @@ static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
   SW_WRITE_BIT(header); /* A3 Bit */
   header >>= 1;
   SW_WRITE_BIT(header); /* Parity Bit */
-  __asm volatile("nop");
   header >>= 1;
   SW_WRITE_BIT(header); /* Stop Bit */
-  __asm volatile("nop");
   header >>= 1;
   SW_WRITE_BIT(header); /* Park Bit */
   __asm volatile("nop");
-
   /* Turnaround */
   PIN_SWDIO_OUT_DISABLE();
   n = DAP_Data.swd_conf.turnaround;
@@ -438,12 +448,11 @@ static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
 label_ok:
   val = 0U;
   /* 保存并关闭 Machine 模式总中断 */
-  uint32_t irq_status = disable_global_irq(CSR_MSTATUS_MIE_MASK);
   REPEAT_8(READ_BIT());
   REPEAT_8(READ_BIT());
   REPEAT_8(READ_BIT());
   REPEAT_8(READ_BIT());
-  restore_global_irq(irq_status);
+
   bit = SW_READ_BIT(); /* Read Parity */
 
   parity = GetParity(val);
@@ -457,12 +466,14 @@ label_ok:
   {
     *data = val;
   }
+
+  PIN_SWDIO_OUT_ENABLE();
+
   /* Turnaround */
   for (n = DAP_Data.swd_conf.turnaround; n; n--)
   {
     SW_CLOCK_CYCLE();
   }
-  PIN_SWDIO_OUT_ENABLE();
   PIN_SWDIO_OUT(1U);
 
   /* Capture Timestamp */
@@ -646,6 +657,444 @@ static uint8_t SWD_Write_Opt(uint8_t header, uint32_t *data)
   }
 }
 
+static uint8_t SWD_Write_Opt2(uint8_t header, uint32_t *data)
+{
+  uint32_t ack = 0;
+  uint32_t bit;
+  uint32_t val;
+  uint32_t parity;
+  uint32_t n;
+
+  /* Packet Request */
+  SW_WRITE_BIT(header); /* Start Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* APnDP Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* RnW Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* A2 Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* A3 Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* Parity Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* Stop Bit */
+  header >>= 1;
+  SW_WRITE_BIT(header); /* Park Bit */
+  __asm volatile("nop");
+
+  /* Turnaround */
+  PIN_SWDIO_OUT_DISABLE();
+  n = DAP_Data.swd_conf.turnaround;
+  do
+  {
+    SW_CLOCK_CYCLE();
+    n--;
+  } while (n);
+  __asm volatile("nop");
+  __asm volatile("nop");
+
+  /* Acknowledge response */
+  // bit = SW_READ_BIT();
+  // ack = bit << 0;
+  // bit = SW_READ_BIT();
+  // ack |= bit << 1;
+  // bit = SW_READ_BIT();
+  // ack |= bit << 2;
+
+  READ_ACK();
+  READ_ACK();
+  READ_ACK();
+  ack >>= 29;
+
+  if (ack == DAP_TRANSFER_OK)
+  {
+    /* Turnaround */
+    n = DAP_Data.swd_conf.turnaround;
+    do
+    {
+      SW_CLOCK_CYCLE();
+      n--;
+    } while (n);
+
+    PIN_SWDIO_OUT_ENABLE();
+    /* Write data */
+    val = *data;
+    parity = GetParity(val);
+
+    // REPEAT_8(WRITE_BIT(val));
+    // REPEAT_8(WRITE_BIT(val));
+    // REPEAT_8(WRITE_BIT(val));
+    // REPEAT_8(WRITE_BIT(val));
+
+            /*********************** Data Bit 0 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 1 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 2 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 3 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 4 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 5 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 6 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 7 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 8 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 9 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 10 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 11 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 12 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 13 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 14 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 15 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 16 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 17 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 18 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 19 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 20 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 21 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 22 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 23 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 24 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 25 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 26 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 27 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 28 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 29 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 30 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        val >>= 1;
+
+        /*********************** Data Bit 31 ***********************/
+        HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
+                                 ((val & 0x01) << PIN_SWDIO_BITFLD);
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // __asm volatile("nop");
+        // __asm volatile("nop");
+
+    SW_WRITE_BIT(parity); /* Write Parity Bit */
+
+    /* Capture Timestamp */
+    // if (request & DAP_TRANSFER_TIMESTAMP)
+    // {
+    //   DAP_Data.timestamp = TIMESTAMP_GET();
+    // }
+    /* Idle cycles */
+    n = DAP_Data.transfer.idle_cycles;
+    if (n)
+    {
+      PIN_SWDIO_OUT(0U);
+      for (; n; n--)
+      {
+        SW_CLOCK_CYCLE();
+      }
+    }
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
+  }
+
+  else if ((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT))
+  {
+    /* WAIT or FAULT response */
+    /* Turnaround */
+    n = DAP_Data.swd_conf.turnaround;
+    do
+    {
+      SW_CLOCK_CYCLE();
+      n--;
+    } while (n);
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
+  }
+  else
+  {
+    /* Protocol error */
+    for (n = DAP_Data.swd_conf.turnaround + 32U + 1U; n; n--)
+    {
+      SW_CLOCK_CYCLE(); /* Back off data phase */
+    }
+    PIN_SWDIO_OUT_ENABLE();
+    PIN_SWDIO_OUT(1U);
+    return ((uint8_t)ack);
+  }
+}
+
 uint8_t SWD_Read(uint8_t header, uint32_t *data)
 {
   if (DAP_Data.fast_clock)
@@ -662,11 +1111,15 @@ uint8_t SWD_Write(uint8_t header, uint32_t *data)
 {
   if (DAP_Data.fast_clock)
   {
-    return SWD_Write_Opt(header, data);
+    // return SWD_Write_Opt(header, data);
+    // return SWD_Write_Opt2(header, data);
+    return SWD_Write_Opt1(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
   }
   else
   {
-    return SWD_Write_Opt(header, data);
+    // return SWD_Write_Opt(header, data);
+    // return SWD_Write_Opt2(header, data);
+    return SWD_Write_Opt1(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
   }
 }
 

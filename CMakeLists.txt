@@ -74,6 +74,7 @@ sdk_app_inc(dap)
 sdk_app_inc(dap/SW_DP)
 sdk_app_src(dap/SW_DP/SW_DP.c)
 sdk_app_src(dap/SW_DP/SW_DP_IO.c)
+sdk_app_src(dap/SW_DP/SWD_Write_Opt.c)
 
 sdk_app_inc(dap/JTAG_DP)
 sdk_app_src(dap/JTAG_DP/JTAG_DP.c)

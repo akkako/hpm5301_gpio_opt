@@ -25,8 +25,8 @@
 
     .text
     .align  2
-    .global SWD_Write_Opt
-    .type   SWD_Write_Opt, @function
+    .global SWD_Write_Opt_Asm
+    .type   SWD_Write_Opt_Asm, @function
 
 # definition
 # uint8_t SWD_Write_Opt(uint8_t header, 
@@ -62,7 +62,7 @@
 # t5 -- Temporary
 # t6 -- Temporary
 
-SWD_Write_Opt:
+SWD_Write_Opt_Asm:
 # 加载预设值和地址
     li      t0, FGPIO_BASE              # t0 = FGPIO 基地址
     li      t1, SWDIR_OFFSET            # SWDIR 偏移位定义
@@ -75,59 +75,59 @@ SWD_Write_Opt:
 # t1 -- SWDIR_OFFSET
 # t2 -- next DO.VALUE calculate
 # t3 -- SWCLK_OFFSET
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
 #---------------- bit 0 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 1 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 2 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 3 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 4 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 5 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 6 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     srli    a0, a0, 1                   # a0 >>= 1
-    ori     t2, a0, 1                   # t2 = 包头 LSB
+    andi    t2, a0, 1                   # t2 = 包头 LSB
     sw      t3, FGPIO_DO_SET_OFFSET(t0) # --- SWCLK 拉高，同时保持 SWDIO 数据
 #---------------- bit 7 ----------------
     slli    t2, t2, SWDIO_SHIFT         # t2 = 数据偏移到 SWDIO 数据位
-    and     t2, t2, t1                  # t2 = DO[0].VALUE 预设值
+    or      t2, t2, t1                  # t2 = DO[0].VALUE 预设值
     sw      t2, FGPIO_DO_VAL_OFFSET(t0) # --- SWCLK 拉低，同时输出 SWDIO 数据
     li      t2, SWDIO_OFFSET            # t2 = SWDIO 偏移位定义
     mv      a0, zero                    # a0 = 0
@@ -143,7 +143,7 @@ SWD_Write_Opt:
 # t3 -- SWCLK_OFFSET
 # t4 -- turnaround
 # 按照 BTFN 模型优化分支预测
-# 输入 t4 = turnaround 周期数 (1-3)，绝大多数为 1
+# 输入 t4 = turnaround 周期数 (1-3)，绝大多数情况为 1
 
     sw      t1, FGPIO_DO_CLR_OFFSET(t0) # 设置 SWDIR 低电平（外部三态输入）
     sw      t2, FGPIO_OE_CLR_OFFSET(t0) # 设置 SWDIO 为输入
@@ -255,6 +255,7 @@ SWD_Write_Opt:
     j       .Lack_error
 
 .Lack_ok:
+# 发送 32 Bit 数据 + 校验位
     ret
 
 .Lack_wait:

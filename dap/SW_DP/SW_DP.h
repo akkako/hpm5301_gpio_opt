@@ -18,6 +18,11 @@ uint8_t SWD_Write_Opt1(uint8_t header,
                        uint8_t data_phase,
                        uint8_t idle_cycles,
                        uint32_t *data);
+uint8_t SWD_Write_Opt_Asm(uint8_t header,
+                      uint8_t turnaround,
+                      uint8_t data_phase,
+                      uint8_t idle_cycles,
+                      uint32_t *data);
 
 #endif
 

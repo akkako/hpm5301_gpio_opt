@@ -115,6 +115,88 @@ uint8_t SWD_Write_Opt1(uint8_t header,
     uint32_t n;
 
     /*********************** Send 8-Bit Header ***********************/
+    /*********************** Send 8-Bit Header (Inline ASM) ***********************/
+    __asm__ volatile(
+        /* 加载 FGPIO 基址和常量掩码 */
+        "li   t0, 0x000C0000          \n\t" /* FGPIO_BASE */
+        "li   t1, 0x40000000          \n\t" /* SWDIR_OFFSET */
+        "li   t3, 0x08000000          \n\t" /* SWCLK_OFFSET */
+
+        /* Bit 0: Start */
+        "andi t2, %[hdr], 1           \n\t"
+        "slli t2, t2, 29              \n\t" /* SWDIO_SHIFT */
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t" /* FGPIO_DO_VAL_OFFSET: SWCLK↓ + DATA */
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t" /* FGPIO_DO_SET_OFFSET: SWCLK↑ */
+
+        /* Bit 1: APnDP */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 2: RnW */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 3: A2 */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 4: A3 */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 5: Parity */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 6: Stop */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "srli %[hdr], %[hdr], 1       \n\t"
+        "andi t2, %[hdr], 1           \n\t"
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Bit 7: Park */
+        "slli t2, t2, 29              \n\t"
+        "or   t2, t2, t1              \n\t"
+        "sw   t2, 0x100(t0)           \n\t"
+        "nop                          \n\t" /* 对应 C 代码中最后一个 nop */
+        "sw   t3, 0x104(t0)           \n\t"
+
+        /* Turnaround: SWDIO -> Input, SWDIR -> Low */
+        "li   t2, 0x20000000          \n\t" /* SWDIO_OFFSET */
+        "sw   t1, 0x108(t0)           \n\t" /* FGPIO_DO_CLR_OFFSET */
+        "sw   t2, 0x208(t0)           \n\t" /* FGPIO_OE_CLR_OFFSET */
+
+        : [hdr] "+r"(header)               /* 读写操作数：header 会被右移耗尽 */
+        :                                  /* 无纯输入操作数 */
+        : "t0", "t1", "t2", "t3", "memory" /* 显式 clobber，避免编译器复用这些寄存器 */
+    );
+
+#if 0
     /*********************** Start Bit ***********************/
     HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                              ((header & 0x01) << PIN_SWDIO_BITFLD);
@@ -170,11 +252,12 @@ uint8_t SWD_Write_Opt1(uint8_t header,
     __asm volatile("nop");
     HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
     __asm volatile("nop");
+#endif
 
     /* Turnaround */
     // set SWDIO pin to input mode, level shifter to input mode
-    HPM_FGPIO->OE[0].CLEAR = PIN_SWDIO_OFFSET;
-    HPM_FGPIO->DO[0].CLEAR = PIN_SWDIR_OFFSET;
+    // HPM_FGPIO->OE[0].CLEAR = PIN_SWDIO_OFFSET;
+    // HPM_FGPIO->DO[0].CLEAR = PIN_SWDIR_OFFSET;
 
     n = turnaround;
     do
@@ -212,29 +295,6 @@ uint8_t SWD_Write_Opt1(uint8_t header,
     __asm volatile("nop");
     __asm volatile("nop");
     __asm volatile("nop");
-    bit = HPM_FGPIO->DI[0].VALUE;
-    HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-    __asm__ __volatile__(
-        "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */
-        "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */
-        "srli  %1, %1, 1\n\t"  /* val = val >> 1 */
-        "slli  %0, %0, 31\n\t" /* bit = bit << 31 */
-        "or    %1, %1, %0\n\t" /* val = val | bit */
-        : "+r"(bit), "+r"(ack) /* bit 和 val 都是读写 */
-        :
-        : "memory");
-
-    HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
-    __asm volatile("nop");
     __asm volatile("nop");
     __asm volatile("nop");
     bit = HPM_FGPIO->DI[0].VALUE;
@@ -250,6 +310,35 @@ uint8_t SWD_Write_Opt1(uint8_t header,
         : "memory");
 
     HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    __asm volatile("nop");
+    bit = HPM_FGPIO->DI[0].VALUE;
+    HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+    __asm__ __volatile__(
+        "srli  %0, %0, 28\n\t" /* bit = bit >> 28 */
+        "andi  %0, %0, 1\n\t"  /* bit = bit & 1 */
+        "srli  %1, %1, 1\n\t"  /* val = val >> 1 */
+        "slli  %0, %0, 31\n\t" /* bit = bit << 31 */
+        "or    %1, %1, %0\n\t" /* val = val | bit */
+        : "+r"(bit), "+r"(ack) /* bit 和 val 都是读写 */
+        :
+        : "memory");
+
+    HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+    __asm volatile("nop");
+    __asm volatile("nop");
     __asm volatile("nop");
     __asm volatile("nop");
     __asm volatile("nop");
@@ -297,333 +386,599 @@ uint8_t SWD_Write_Opt1(uint8_t header,
         val = *data;
         parity = GetParity(val);
 
+        __asm__ volatile(
+            /* 加载 FGPIO 基址和常量掩码 */
+
+            "andi t2, %[hdr], 1           \n\t"
+
+            /* Bit 0 */
+            "slli t2, t2, 29              \n\t" /* SWDIO_SHIFT */
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t" /* FGPIO_DO_VAL_OFFSET: SWCLK↓ + DATA */
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t" /* FGPIO_DO_SET_OFFSET: SWCLK↑ */
+    
+            /* Bit 1 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 2 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 3 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 4 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 5 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 6 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 7 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 0 */
+            "slli t2, t2, 29              \n\t" /* SWDIO_SHIFT */
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t" /* FGPIO_DO_VAL_OFFSET: SWCLK↓ + DATA */
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t" /* FGPIO_DO_SET_OFFSET: SWCLK↑ */
+    
+            /* Bit 1 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 2 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 3 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 4 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 5 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 6 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 7 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+
+            /* Bit 0 */
+            "slli t2, t2, 29              \n\t" /* SWDIO_SHIFT */
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t" /* FGPIO_DO_VAL_OFFSET: SWCLK↓ + DATA */
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t" /* FGPIO_DO_SET_OFFSET: SWCLK↑ */
+    
+            /* Bit 1 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 2 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 3 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 4 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 5 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 6 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 7 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+
+            /* Bit 0 */
+            "slli t2, t2, 29              \n\t" /* SWDIO_SHIFT */
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t" /* FGPIO_DO_VAL_OFFSET: SWCLK↓ + DATA */
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t" /* FGPIO_DO_SET_OFFSET: SWCLK↑ */
+    
+            /* Bit 25 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 26 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 27 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 28 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 29 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 30 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "srli %[hdr], %[hdr], 1       \n\t"
+            "andi t2, %[hdr], 1           \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+    
+            /* Bit 31 */
+            "slli t2, t2, 29              \n\t"
+            "or   t2, t2, t1              \n\t"
+            "sw   t2, 0x100(t0)           \n\t"
+            "nop                          \n\t"
+            "nop                          \n\t"
+            "sw   t3, 0x104(t0)           \n\t"
+
+            : [hdr] "+r"(val)                  /* 读写操作数：val 会被右移耗尽 */
+            :                                  /* 无纯输入操作数 */
+            : "t0", "t1", "t2", "t3", "memory" /* 显式 clobber，避免编译器复用这些寄存器 */
+        );
+#if 0
         /*********************** Data Bit 0 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 1 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 2 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 3 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 4 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 5 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 6 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 7 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 8 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 9 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 10 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 11 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 12 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 13 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 14 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 15 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 16 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 17 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 18 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 19 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 20 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 21 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 22 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 23 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 24 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 25 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 26 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 27 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 28 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 29 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 30 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         val >>= 1;
 
         /*********************** Data Bit 31 ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((val & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
-
+        __asm volatile("nop");
+#endif
         /*********************** Parity Bit ***********************/
         HPM_FGPIO->DO[0].VALUE = (1 << PIN_SWDIR_BITFLD) |
                                  ((parity & 0x01) << PIN_SWDIO_BITFLD);
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
         HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
         // __asm volatile("nop");
-        // __asm volatile("nop");
+        __asm volatile("nop");
 
         /* Capture Timestamp */
         // if (request & DAP_TRANSFER_TIMESTAMP)

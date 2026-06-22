@@ -1114,12 +1114,14 @@ uint8_t SWD_Write(uint8_t header, uint32_t *data)
     // return SWD_Write_Opt(header, data);
     // return SWD_Write_Opt2(header, data);
     return SWD_Write_Opt1(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
+    // return SWD_Write_Opt_Asm(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
   }
   else
   {
     // return SWD_Write_Opt(header, data);
     // return SWD_Write_Opt2(header, data);
-    return SWD_Write_Opt1(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
+    // return SWD_Write_Opt1(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
+    // return SWD_Write_Opt_Asm(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
   }
 }
 

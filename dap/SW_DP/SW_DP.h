@@ -13,26 +13,16 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi);
 uint8_t SWD_Write(uint8_t header, uint32_t *data);
 uint8_t SWD_Read(uint8_t header, uint32_t *data);
 
-uint8_t SWD_Write_Opt_60M(uint8_t header,
-                          uint8_t turnaround,
-                          uint8_t data_phase,
-                          uint8_t idle_cycles,
-                          uint32_t *data);
-uint8_t SWD_Write_Opt_45M(uint8_t header,
-                          uint8_t turnaround,
-                          uint8_t data_phase,
-                          uint8_t idle_cycles,
-                          uint32_t *data);
-uint8_t SWD_Write_Opt_36M(uint8_t header,
-                          uint8_t turnaround,
-                          uint8_t data_phase,
-                          uint8_t idle_cycles,
-                          uint32_t *data);
-uint8_t SWD_Write_Opt_Asm(uint8_t header,
-                          uint8_t turnaround,
-                          uint8_t data_phase,
-                          uint8_t idle_cycles,
-                          uint32_t *data);
+uint8_t SWD_Write_Opt_60M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_45M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_36M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_30M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_20M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_15M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_10M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_5M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_1M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
+uint8_t SWD_Write_Opt_ASm(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
 
 #endif
 

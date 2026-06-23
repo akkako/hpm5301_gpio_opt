@@ -156,6 +156,7 @@ typedef struct {
   uint8_t     debug_port;                       // Debug Port
   uint8_t     fast_clock;                       // Fast Clock Flag
   uint8_t     padding[2];
+  uint32_t   clock_speed;                       // Clock speed
   uint32_t   clock_delay;                       // Clock Delay
   uint32_t     timestamp;                       // Last captured Timestamp
   struct {                                      // Transfer Configuration

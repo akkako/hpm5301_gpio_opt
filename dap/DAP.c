@@ -60,6 +60,8 @@ void Set_Clock_Delay(uint32_t clock)
 {
   uint32_t delay;
 
+  DAP_Data.clock_speed = clock;
+
   if (clock >= MAX_SWJ_CLOCK(DELAY_FAST_CYCLES))
   {
     DAP_Data.fast_clock = 1U;

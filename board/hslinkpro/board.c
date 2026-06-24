@@ -323,32 +323,6 @@ void board_ungate_mchtmr_at_lp_mode(void)
     sysctl_set_cpu_lp_mode(HPM_SYSCTL, BOARD_RUNNING_CORE, cpu_lp_mode_ungate_cpu_clock);
 }
 
-uint32_t board_init_spi_clock(SPI_Type *ptr)
-{
-    if (ptr == HPM_SPI1) {
-        clock_add_to_group(clock_spi1, 0);
-        return clock_get_frequency(clock_spi1);
-    }
-    return 0;
-}
-
-void board_init_spi_pins(SPI_Type *ptr)
-{
-    init_spi_pins(ptr);
-}
-
-void board_write_spi_cs(uint32_t pin, uint8_t state)
-{
-    gpio_write_pin(BOARD_SPI_CS_GPIO_CTRL, GPIO_GET_PORT_INDEX(pin), GPIO_GET_PIN_INDEX(pin), state);
-}
-
-void board_init_spi_pins_with_gpio_as_cs(SPI_Type *ptr)
-{
-    init_spi_pins_with_gpio_as_cs(ptr);
-    gpio_set_pin_output_with_initial(BOARD_SPI_CS_GPIO_CTRL, GPIO_GET_PORT_INDEX(BOARD_SPI_CS_PIN),
-                                     GPIO_GET_PIN_INDEX(BOARD_SPI_CS_PIN), !BOARD_SPI_CS_ACTIVE_LEVEL);
-}
-
 uint32_t board_init_adc_clock(void *ptr, bool clk_src_bus)
 {
     uint32_t freq = 0;
@@ -374,27 +348,6 @@ void board_init_adc16_pins(void)
     init_adc_pins();
 }
 
-void board_init_acmp_clock(ACMP_Type *ptr)
-{
-    (void)ptr;
-    clock_add_to_group(BOARD_ACMP_CLK, BOARD_RUNNING_CORE & 0x1);
-}
-
-void board_init_acmp_pins(void)
-{
-    init_acmp_pins();
-}
-
-void board_disable_output_rgb_led(uint8_t color)
-{
-    (void)color;
-}
-
-void board_enable_output_rgb_led(uint8_t color)
-{
-    (void)color;
-}
-
 void board_init_pmp(void)
 {
 }
@@ -413,67 +366,3 @@ uint32_t board_init_uart_clock(UART_Type *ptr)
     return freq;
 }
 
-void board_i2c_bus_clear(I2C_Type *ptr)
-{
-    if (i2c_get_line_scl_status(ptr) == false) {
-        printf("CLK is low, please power cycle the board\n");
-        while (1) {
-        }
-    }
-    if (i2c_get_line_sda_status(ptr) == false) {
-        printf("SDA is low, try to issue I2C bus clear\n");
-    } else {
-        printf("I2C bus is ready\n");
-        return;
-    }
-    i2c_gen_reset_signal(ptr, 9);
-    board_delay_ms(100);
-    printf("I2C bus is cleared\n");
-}
-
-uint32_t board_init_i2c_clock(I2C_Type *ptr)
-{
-    uint32_t freq = 0;
-
-    if (ptr == HPM_I2C0) {
-        clock_add_to_group(clock_i2c0, 0);
-        freq = clock_get_frequency(clock_i2c0);
-    } else if (ptr == HPM_I2C1) {
-        clock_add_to_group(clock_i2c1, 0);
-        freq = clock_get_frequency(clock_i2c1);
-    } else if (ptr == HPM_I2C2) {
-        clock_add_to_group(clock_i2c2, 0);
-        freq = clock_get_frequency(clock_i2c2);
-    } else if (ptr == HPM_I2C3) {
-        clock_add_to_group(clock_i2c3, 0);
-        freq = clock_get_frequency(clock_i2c3);
-    } else {
-        ;
-    }
-
-    return freq;
-}
-
-void board_init_i2c(I2C_Type *ptr)
-{
-    i2c_config_t config;
-    hpm_stat_t stat;
-    uint32_t freq;
-
-    freq = board_init_i2c_clock(ptr);
-    init_i2c_pins(ptr);
-    board_i2c_bus_clear(ptr);
-    config.i2c_mode = i2c_mode_normal;
-    config.is_10bit_addressing = false;
-    stat = i2c_init_master(ptr, freq, &config);
-    if (stat != status_success) {
-        printf("failed to initialize i2c 0x%lx\n", (uint32_t)ptr);
-        while (1) {
-        }
-    }
-}
-
-void board_init_gptmr_channel_pin(GPTMR_Type *ptr, uint32_t channel, bool as_comp)
-{
-    init_gptmr_channel_pin(ptr, channel, as_comp);
-}

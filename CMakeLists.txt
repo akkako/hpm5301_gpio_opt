@@ -102,7 +102,7 @@ sdk_app_src(usb/hid_comm.c)
 sdk_app_src(usb/usb2uart.c)
 sdk_app_src(usb/dap_main.c)
 
-sdk_compile_options(-O2)
+sdk_compile_options(-Ofast -flto)
 
 sdk_ld_options("-lm")
 

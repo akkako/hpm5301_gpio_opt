@@ -289,8 +289,8 @@ static uint32_t DAP_SWJ_Pins(const uint8_t *request, uint8_t *response)
   uint32_t wait;
   uint32_t timestamp;
 
-  value = (uint32_t)*(request + 0);
-  select = (uint32_t)*(request + 1);
+  value = (uint32_t) * (request + 0);
+  select = (uint32_t) * (request + 1);
   wait = (uint32_t)(*(request + 2) << 0) |
          (uint32_t)(*(request + 3) << 8) |
          (uint32_t)(*(request + 4) << 16) |
@@ -687,14 +687,14 @@ id_error:
 static uint32_t DAP_TransferConfigure(const uint8_t *request, uint8_t *response)
 {
 
-    DAP_Data.transfer.idle_cycles = *(request + 0);
-    DAP_Data.transfer.retry_count = (uint16_t)(*(request + 1)) |
-                                    (uint16_t)(*(request + 2) << 8);
-    DAP_Data.transfer.match_retry = (uint16_t)(*(request + 3)) |
-                                    (uint16_t)(*(request + 4) << 8);
+  DAP_Data.transfer.idle_cycles = *(request + 0);
+  DAP_Data.transfer.retry_count = (uint16_t)(*(request + 1)) |
+                                  (uint16_t)(*(request + 2) << 8);
+  DAP_Data.transfer.match_retry = (uint16_t)(*(request + 3)) |
+                                  (uint16_t)(*(request + 4) << 8);
 
-    *response = DAP_OK;
-    return ((5U << 16) | 1U);
+  *response = DAP_OK;
+  return ((5U << 16) | 1U);
 }
 
 // Process SWD Transfer command and prepare response
@@ -718,7 +718,7 @@ static uint32_t DAP_SWD_Transfer(const uint8_t *request, uint8_t *response)
   uint32_t retry;
   uint32_t data;
   uint8_t header;
-  #if (TIMESTAMP_CLOCK != 0U)
+#if (TIMESTAMP_CLOCK != 0U)
   uint32_t timestamp;
 #endif
 
@@ -1951,7 +1951,6 @@ uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response)
 // Setup DAP
 void DAP_Setup(void)
 {
-
   // Default settings
   DAP_Data.debug_port = 0U;
   DAP_Data.transfer.idle_cycles = 0U;

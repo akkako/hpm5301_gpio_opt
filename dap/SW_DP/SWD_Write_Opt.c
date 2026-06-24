@@ -1,4 +1,23 @@
 #include <stdint.h>
+// #include "hpm_interrupt.h"
+
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+#define set_csr(csr_num, bit) __asm volatile("csrs %0, %1" \
+                                             :             \
+                                             : "i"(csr_num), "r"(bit))
+#define read_clear_csr(csr_num, bit) ({ volatile uint32_t v = 0; __asm volatile("csrrc %0, %1, %2" : "=r"(v) : "i"(csr_num), "r"(bit)); v; })
+
+static inline void enable_global_irq(uint32_t mask)
+{
+    set_csr(0x300, mask);
+}
+
+static inline uint32_t disable_global_irq(uint32_t mask)
+{
+    return read_clear_csr(0x300, mask);
+}
 
 #define __R volatile const /* Define "read-only" permission */
 #define __RW volatile      /* Define "read-write" permission */
@@ -1744,17 +1763,22 @@ uint8_t SWD_Write_Opt_45M(uint8_t header,
         :
         : "t0", "t1", "t2", "t3", "memory");
 
-    n = turnaround;
-    do
+    // ===== 热路径：n=1，纯顺序执行，零分支 =====
+    HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+    __asm volatile("nop");
+    HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+
+    // ===== 冷路径：n>1，极少执行 =====
+    if (UNLIKELY(turnaround > 1))
     {
-        // empty cycle
-        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-        __asm volatile("nop");
-        __asm volatile("nop");
-        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-        __asm volatile("nop");
-        n--;
-    } while (n);
+        uint32_t n = turnaround - 1;
+        do
+        {
+            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+            __asm volatile("nop");
+            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        } while (--n);
+    }
 
     __asm volatile("nop");
     __asm volatile("nop");
@@ -1844,22 +1868,29 @@ uint8_t SWD_Write_Opt_45M(uint8_t header,
 
     ack >>= 29;
 
-    if (ack == DAP_TRANSFER_OK)
+    if (LIKELY(ack == DAP_TRANSFER_OK))
     {
         // PIN_SWDIO_OUT_ENABLE();
         // set SWDIO pin to output mode, level shifter to output mode
         HPM_FGPIO->OE[0].SET = PIN_SWDIO_OFFSET;
         HPM_FGPIO->DO[0].SET = PIN_SWDIR_OFFSET;
         /* Turnaround */
-        n = turnaround;
-        do
+        // ===== 热路径：n=1，纯顺序执行，零分支 =====
+        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+        __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+
+        // ===== 冷路径：n>1，极少执行 =====
+        if (UNLIKELY(turnaround > 1))
         {
-            // empty cycle
-            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-            n--;
-        } while (n);
+            uint32_t n = turnaround - 1;
+            do
+            {
+                HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+                __asm volatile("nop");
+                HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+            } while (--n);
+        }
 
         /* Write data */
         val = *data;
@@ -1923,7 +1954,7 @@ uint8_t SWD_Write_Opt_45M(uint8_t header,
         // }
         /* Idle cycles */
         n = idle_cycles;
-        if (n)
+        if (UNLIKELY(n))
         {
             // PIN_SWDIO_OUT(0U);
             HPM_FGPIO->DO[0].CLEAR = PIN_SWDIO_OFFSET;
@@ -1944,20 +1975,27 @@ uint8_t SWD_Write_Opt_45M(uint8_t header,
         return ((uint8_t)ack);
     }
 
-    else if ((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT))
+    else if (UNLIKELY((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT)))
     {
         /* WAIT or FAULT response */
         /* Turnaround */
-        n = turnaround;
-        do
+        // ===== 热路径：n=1，纯顺序执行，零分支 =====
+        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+        __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+
+        // ===== 冷路径：n>1，极少执行 =====
+        if (UNLIKELY(turnaround > 1))
         {
-            // empty cycle
-            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            n--;
-        } while (n);
+            uint32_t n = turnaround - 1;
+            do
+            {
+                HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+                __asm volatile("nop");
+                HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+            } while (--n);
+        }
+
         // PIN_SWDIO_OUT_ENABLE();
         HPM_FGPIO->OE[0].SET = PIN_SWDIO_OFFSET;
         HPM_FGPIO->DO[0].SET = PIN_SWDIR_OFFSET;
@@ -2041,18 +2079,24 @@ uint8_t SWD_Write_Opt_60M(uint8_t header,
         :
         : "t0", "t1", "t2", "t3", "memory");
 
-    n = turnaround;
-    do
-    {
-        // empty cycle
-        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-        __asm volatile("nop");
-        __asm volatile("nop");
-        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-        __asm volatile("nop");
-        n--;
-    } while (n);
+    // ===== 热路径：n=1，纯顺序执行，零分支 =====
+    HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+    __asm volatile("nop");
+    HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
 
+    // ===== 冷路径：n>1，极少执行 =====
+    if (UNLIKELY(turnaround > 1))
+    {
+        uint32_t n = turnaround - 1;
+        do
+        {
+            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+            __asm volatile("nop");
+            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        } while (--n);
+    }
+
+    // uint32_t irq_status = disable_global_irq(0x8U);
     __asm volatile("nop");
     __asm volatile("nop");
 
@@ -2140,23 +2184,31 @@ uint8_t SWD_Write_Opt_60M(uint8_t header,
         : "memory");
 
     ack >>= 29;
+    // enable_global_irq(irq_status);
 
-    if (ack == DAP_TRANSFER_OK)
+    if (LIKELY(ack == DAP_TRANSFER_OK))
     {
         // PIN_SWDIO_OUT_ENABLE();
         // set SWDIO pin to output mode, level shifter to output mode
         HPM_FGPIO->OE[0].SET = PIN_SWDIO_OFFSET;
         HPM_FGPIO->DO[0].SET = PIN_SWDIR_OFFSET;
         /* Turnaround */
-        n = turnaround;
-        do
+        // ===== 热路径：n=1，纯顺序执行，零分支 =====
+        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+        __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+
+        // ===== 冷路径：n>1，极少执行 =====
+        if (UNLIKELY(turnaround > 1))
         {
-            // empty cycle
-            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-            n--;
-        } while (n);
+            uint32_t n = turnaround - 1;
+            do
+            {
+                HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+                __asm volatile("nop");
+                HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+            } while (--n);
+        }
 
         /* Write data */
         val = *data;
@@ -2214,7 +2266,7 @@ uint8_t SWD_Write_Opt_60M(uint8_t header,
         // }
         /* Idle cycles */
         n = idle_cycles;
-        if (n)
+        if (UNLIKELY(n))
         {
             // PIN_SWDIO_OUT(0U);
             HPM_FGPIO->DO[0].CLEAR = PIN_SWDIO_OFFSET;
@@ -2235,20 +2287,26 @@ uint8_t SWD_Write_Opt_60M(uint8_t header,
         return ((uint8_t)ack);
     }
 
-    else if ((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT))
+    else if (UNLIKELY((ack == DAP_TRANSFER_WAIT) || (ack == DAP_TRANSFER_FAULT)))
     {
         /* WAIT or FAULT response */
         /* Turnaround */
-        n = turnaround;
-        do
+        // ===== 热路径：n=1，纯顺序执行，零分支 =====
+        HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+        __asm volatile("nop");
+        HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+        // ===== 冷路径：n>1，极少执行 =====
+        if (UNLIKELY(turnaround > 1))
         {
-            // empty cycle
-            HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
-            __asm volatile("nop");
-            n--;
-        } while (n);
+            uint32_t n = turnaround - 1;
+            do
+            {
+                HPM_FGPIO->DO[0].CLEAR = PIN_SWCLK_OFFSET;
+                __asm volatile("nop");
+                HPM_FGPIO->DO[0].SET = PIN_SWCLK_OFFSET;
+            } while (--n);
+        }
+
         // PIN_SWDIO_OUT_ENABLE();
         HPM_FGPIO->OE[0].SET = PIN_SWDIO_OFFSET;
         HPM_FGPIO->DO[0].SET = PIN_SWDIR_OFFSET;

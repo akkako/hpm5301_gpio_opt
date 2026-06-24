@@ -28,7 +28,6 @@
 #include "DAP_config.h"
 #include "DAP.h"
 
-
 // JTAG Macros
 
 #define PIN_TCK_SET PIN_SWCLK_TCK_SET
@@ -36,371 +35,415 @@
 #define PIN_TMS_SET PIN_SWDIO_TMS_SET
 #define PIN_TMS_CLR PIN_SWDIO_TMS_CLR
 
-#define JTAG_CYCLE_TCK()                \
-  PIN_TCK_CLR();                        \
-  PIN_DELAY();                          \
-  PIN_TCK_SET();                        \
-  PIN_DELAY()
-
-#define JTAG_CYCLE_TDI(tdi)             \
-  PIN_TDI_OUT(tdi);                     \
-  PIN_TCK_CLR();                        \
-  PIN_DELAY();                          \
-  PIN_TCK_SET();                        \
-  PIN_DELAY()
-
-#define JTAG_CYCLE_TDO(tdo)             \
-  PIN_TCK_CLR();                        \
-  PIN_DELAY();                          \
-  tdo = PIN_TDO_IN();                   \
-  PIN_TCK_SET();                        \
-  PIN_DELAY()
-
-#define JTAG_CYCLE_TDIO(tdi,tdo)        \
-  PIN_TDI_OUT(tdi);                     \
-  PIN_TCK_CLR();                        \
-  PIN_DELAY();                          \
-  tdo = PIN_TDO_IN();                   \
-  PIN_TCK_SET();                        \
-  PIN_DELAY()
-
 #define PIN_DELAY() PIN_DELAY_SLOW(DAP_Data.clock_delay)
 
+static inline void JTAG_CYCLE_TCK(void)
+{
+  PIN_TCK_CLR();
+  PIN_DELAY();
+  PIN_TCK_SET();
+  PIN_DELAY();
+}
+
+static inline void JTAG_CYCLE_TDI(uint32_t tdi)
+{
+  PIN_TDI_OUT(tdi);
+  PIN_TCK_CLR();
+  PIN_DELAY();
+  PIN_TCK_SET();
+  PIN_DELAY();
+}
+
+static inline uint32_t JTAG_CYCLE_TDO(void)
+{
+  uint32_t tdo;
+  PIN_TCK_CLR();
+  PIN_DELAY();
+  tdo = PIN_TDO_IN();
+  PIN_TCK_SET();
+  PIN_DELAY();
+  return tdo;
+}
+
+static inline uint32_t JTAG_CYCLE_TDIO(uint32_t tdi)
+{
+  uint32_t tdo;
+  PIN_TDI_OUT(tdi);
+  PIN_TCK_CLR();
+  PIN_DELAY();
+  tdo = PIN_TDO_IN();
+  PIN_TCK_SET();
+  PIN_DELAY();
+  return tdo;
+}
 
 #if (DAP_JTAG != 0)
-
 
 // Generate JTAG Sequence
 //   info:   sequence information
 //   tdi:    pointer to TDI generated data
 //   tdo:    pointer to TDO captured data
 //   return: none
-void IO_JTAG_Sequence (uint32_t info, const uint8_t *tdi, uint8_t *tdo) {
+void IO_JTAG_Sequence(uint32_t info, const uint8_t *tdi, uint8_t *tdo)
+{
   uint32_t i_val;
   uint32_t o_val;
   uint32_t bit;
   uint32_t n, k;
 
   n = info & JTAG_SEQUENCE_TCK;
-  if (n == 0U) {
+  if (n == 0U)
+  {
     n = 64U;
   }
 
-  if (info & JTAG_SEQUENCE_TMS) {
+  if (info & JTAG_SEQUENCE_TMS)
+  {
     PIN_TMS_SET();
-  } else {
+  }
+  else
+  {
     PIN_TMS_CLR();
   }
 
-  while (n) {
+  while (n)
+  {
     i_val = *tdi++;
     o_val = 0U;
-    for (k = 8U; k && n; k--, n--) {
-      JTAG_CYCLE_TDIO(i_val, bit);
+    for (k = 8U; k && n; k--, n--)
+    {
+      bit = JTAG_CYCLE_TDIO(i_val);
       i_val >>= 1;
       o_val >>= 1;
-      o_val  |= bit << 7;
+      o_val |= bit << 7;
     }
     o_val >>= k;
-    if (info & JTAG_SEQUENCE_TDO) {
+    if (info & JTAG_SEQUENCE_TDO)
+    {
       *tdo++ = (uint8_t)o_val;
     }
   }
 }
 
-
 // JTAG Set IR
 //   ir:     IR value
 //   return: none
-#define JTAG_IR_Function(speed) /**/                                            \
-static void JTAG_IR_##speed (uint32_t ir) {                                     \
-  uint32_t n;                                                                   \
-                                                                                \
-  PIN_TMS_SET();                                                                \
-  JTAG_CYCLE_TCK();                         /* Select-DR-Scan */                \
-  JTAG_CYCLE_TCK();                         /* Select-IR-Scan */                \
-  PIN_TMS_CLR();                                                                \
-  JTAG_CYCLE_TCK();                         /* Capture-IR */                    \
-  JTAG_CYCLE_TCK();                         /* Shift-IR */                      \
-                                                                                \
-  PIN_TDI_OUT(1U);                                                              \
-  for (n = DAP_Data.jtag_dev.ir_before[DAP_Data.jtag_dev.index]; n; n--) {      \
-    JTAG_CYCLE_TCK();                       /* Bypass before data */            \
-  }                                                                             \
-  for (n = DAP_Data.jtag_dev.ir_length[DAP_Data.jtag_dev.index] - 1U; n; n--) { \
-    JTAG_CYCLE_TDI(ir);                     /* Set IR bits (except last) */     \
-    ir >>= 1;                                                                   \
-  }                                                                             \
-  n = DAP_Data.jtag_dev.ir_after[DAP_Data.jtag_dev.index];                      \
-  if (n) {                                                                      \
-    JTAG_CYCLE_TDI(ir);                     /* Set last IR bit */               \
-    PIN_TDI_OUT(1U);                                                            \
-    for (--n; n; n--) {                                                         \
-      JTAG_CYCLE_TCK();                     /* Bypass after data */             \
-    }                                                                           \
-    PIN_TMS_SET();                                                              \
-    JTAG_CYCLE_TCK();                       /* Bypass & Exit1-IR */             \
-  } else {                                                                      \
-    PIN_TMS_SET();                                                              \
-    JTAG_CYCLE_TDI(ir);                     /* Set last IR bit & Exit1-IR */    \
-  }                                                                             \
-                                                                                \
-  JTAG_CYCLE_TCK();                         /* Update-IR */                     \
-  PIN_TMS_CLR();                                                                \
-  JTAG_CYCLE_TCK();                         /* Idle */                          \
-  PIN_TDI_OUT(1U);                                                              \
-}
+static void JTAG_IR_Opt(uint32_t ir)
+{
+  uint32_t n;
 
+  PIN_TMS_SET();
+  JTAG_CYCLE_TCK(); /* Select-DR-Scan */
+  JTAG_CYCLE_TCK(); /* Select-IR-Scan */
+  PIN_TMS_CLR();
+  JTAG_CYCLE_TCK(); /* Capture-IR */
+  JTAG_CYCLE_TCK(); /* Shift-IR */
+
+  PIN_TDI_OUT(1U);
+  for (n = DAP_Data.jtag_dev.ir_before[DAP_Data.jtag_dev.index]; n; n--)
+  {
+    JTAG_CYCLE_TCK(); /* Bypass before data */
+  }
+  for (n = DAP_Data.jtag_dev.ir_length[DAP_Data.jtag_dev.index] - 1U; n; n--)
+  {
+    JTAG_CYCLE_TDI(ir); /* Set IR bits (except last) */
+    ir >>= 1;
+  }
+  n = DAP_Data.jtag_dev.ir_after[DAP_Data.jtag_dev.index];
+  if (n)
+  {
+    JTAG_CYCLE_TDI(ir); /* Set last IR bit */
+    PIN_TDI_OUT(1U);
+    for (--n; n; n--)
+    {
+      JTAG_CYCLE_TCK(); /* Bypass after data */
+    }
+    PIN_TMS_SET();
+    JTAG_CYCLE_TCK(); /* Bypass & Exit1-IR */
+  }
+  else
+  {
+    PIN_TMS_SET();
+    JTAG_CYCLE_TDI(ir); /* Set last IR bit & Exit1-IR */
+  }
+
+  JTAG_CYCLE_TCK(); /* Update-IR */
+  PIN_TMS_CLR();
+  JTAG_CYCLE_TCK(); /* Idle */
+  PIN_TDI_OUT(1U);
+}
 
 // JTAG Transfer I/O
 //   request: A[3:2] RnW APnDP
 //   data:    DATA[31:0]
 //   return:  ACK[2:0]
-#define JTAG_TransferFunction(speed)        /**/                                \
-static uint8_t JTAG_Transfer##speed (uint32_t request, uint32_t *data) {        \
-  uint32_t ack;                                                                 \
-  uint32_t bit;                                                                 \
-  uint32_t val;                                                                 \
-  uint32_t n;                                                                   \
-                                                                                \
-  PIN_TMS_SET();                                                                \
-  JTAG_CYCLE_TCK();                         /* Select-DR-Scan */                \
-  PIN_TMS_CLR();                                                                \
-  JTAG_CYCLE_TCK();                         /* Capture-DR */                    \
-  JTAG_CYCLE_TCK();                         /* Shift-DR */                      \
-                                                                                \
-  for (n = DAP_Data.jtag_dev.index; n; n--) {                                   \
-    JTAG_CYCLE_TCK();                       /* Bypass before data */            \
-  }                                                                             \
-                                                                                \
-  JTAG_CYCLE_TDIO(request >> 1, bit);       /* Set RnW, Get ACK.0 */            \
-  ack  = bit << 1;                                                              \
-  JTAG_CYCLE_TDIO(request >> 2, bit);       /* Set A2,  Get ACK.1 */            \
-  ack |= bit << 0;                                                              \
-  JTAG_CYCLE_TDIO(request >> 3, bit);       /* Set A3,  Get ACK.2 */            \
-  ack |= bit << 2;                                                              \
-                                                                                \
-  if (ack != DAP_TRANSFER_OK) {                                                 \
-    /* Exit on error */                                                         \
-    PIN_TMS_SET();                                                              \
-    JTAG_CYCLE_TCK();                       /* Exit1-DR */                      \
-    goto exit;                                                                  \
-  }                                                                             \
-                                                                                \
-  if (request & DAP_TRANSFER_RnW) {                                             \
-    /* Read Transfer */                                                         \
-    val = 0U;                                                                   \
-    for (n = 31U; n; n--) {                                                     \
-      JTAG_CYCLE_TDO(bit);                  /* Get D0..D30 */                   \
-      val  |= bit << 31;                                                        \
-      val >>= 1;                                                                \
-    }                                                                           \
-    n = DAP_Data.jtag_dev.count - DAP_Data.jtag_dev.index - 1U;                 \
-    if (n) {                                                                    \
-      JTAG_CYCLE_TDO(bit);                  /* Get D31 */                       \
-      for (--n; n; n--) {                                                       \
-        JTAG_CYCLE_TCK();                   /* Bypass after data */             \
-      }                                                                         \
-      PIN_TMS_SET();                                                            \
-      JTAG_CYCLE_TCK();                     /* Bypass & Exit1-DR */             \
-    } else {                                                                    \
-      PIN_TMS_SET();                                                            \
-      JTAG_CYCLE_TDO(bit);                  /* Get D31 & Exit1-DR */            \
-    }                                                                           \
-    val |= bit << 31;                                                           \
-    if (data) { *data = val; }                                                  \
-  } else {                                                                      \
-    /* Write Transfer */                                                        \
-    val = *data;                                                                \
-    for (n = 31U; n; n--) {                                                     \
-      JTAG_CYCLE_TDI(val);                  /* Set D0..D30 */                   \
-      val >>= 1;                                                                \
-    }                                                                           \
-    n = DAP_Data.jtag_dev.count - DAP_Data.jtag_dev.index - 1U;                 \
-    if (n) {                                                                    \
-      JTAG_CYCLE_TDI(val);                  /* Set D31 */                       \
-      for (--n; n; n--) {                                                       \
-        JTAG_CYCLE_TCK();                   /* Bypass after data */             \
-      }                                                                         \
-      PIN_TMS_SET();                                                            \
-      JTAG_CYCLE_TCK();                     /* Bypass & Exit1-DR */             \
-    } else {                                                                    \
-      PIN_TMS_SET();                                                            \
-      JTAG_CYCLE_TDI(val);                  /* Set D31 & Exit1-DR */            \
-    }                                                                           \
-  }                                                                             \
-                                                                                \
-exit:                                                                           \
-  JTAG_CYCLE_TCK();                         /* Update-DR */                     \
-  PIN_TMS_CLR();                                                                \
-  JTAG_CYCLE_TCK();                         /* Idle */                          \
-  PIN_TDI_OUT(1U);                                                              \
-                                                                                \
-  /* Capture Timestamp */                                                       \
-  if (request & DAP_TRANSFER_TIMESTAMP) {                                       \
-    DAP_Data.timestamp = TIMESTAMP_GET();                                       \
-  }                                                                             \
-                                                                                \
-  /* Idle cycles */                                                             \
-  n = DAP_Data.transfer.idle_cycles;                                            \
-  while (n--) {                                                                 \
-    JTAG_CYCLE_TCK();                       /* Idle */                          \
-  }                                                                             \
-                                                                                \
-  return ((uint8_t)ack);                                                        \
-}
-
-
-#undef  PIN_DELAY
-#define PIN_DELAY() PIN_DELAY_FAST()
-JTAG_IR_Function(Fast)
-JTAG_TransferFunction(Fast)
-
-#undef  PIN_DELAY
-#define PIN_DELAY() PIN_DELAY_SLOW(DAP_Data.clock_delay)
-JTAG_IR_Function(Slow)
-JTAG_TransferFunction(Slow)
-
-
-void IO_PORT_JTAG_SETUP (void) {
-    HPM_IOC->PAD[PIN_TCK].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0) | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK; /* as gpio*/
-    HPM_IOC->PAD[PIN_TMS].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0); /* as gpio*/
-    HPM_IOC->PAD[PIN_TDI].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0); /* as gpio*/
-    HPM_IOC->PAD[PIN_TDO].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
-    HPM_IOC->PAD[PIN_JTAG_TRST].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
-    HPM_IOC->PAD[PIN_SRST].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
-
-    HPM_IOC->PAD[PIN_TCK].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-    HPM_IOC->PAD[PIN_TMS].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-    HPM_IOC->PAD[PIN_TDI].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-    HPM_IOC->PAD[PIN_TDO].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-    HPM_IOC->PAD[PIN_JTAG_TRST].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-    HPM_IOC->PAD[PIN_SRST].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
-
-    gpiom_configure_pin_control_setting(PIN_TCK);
-    gpiom_configure_pin_control_setting(PIN_TMS);
-    gpiom_configure_pin_control_setting(PIN_TDI);
-    gpiom_configure_pin_control_setting(PIN_TDO);
-    gpiom_configure_pin_control_setting(PIN_JTAG_TRST);
-    gpiom_configure_pin_control_setting(PIN_SRST);
-
-    gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TCK), GPIO_GET_PIN_INDEX(PIN_TCK));
-    gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TMS), GPIO_GET_PIN_INDEX(PIN_TMS));
-    gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TDI), GPIO_GET_PIN_INDEX(PIN_TDI));
-    gpio_set_pin_input(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TDO), GPIO_GET_PIN_INDEX(PIN_TDO));
-    gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_JTAG_TRST), GPIO_GET_PIN_INDEX(PIN_JTAG_TRST));
-    gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_SRST), GPIO_GET_PIN_INDEX(PIN_SRST));
-
-    gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_SRST), GPIO_GET_PIN_INDEX(PIN_SRST), !HSLink_Global.reset_level);
-    gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_JTAG_TRST), GPIO_GET_PIN_INDEX(PIN_JTAG_TRST), 1);
-
-    gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), 1); // JTAG模式下SWDIO_DIR为高
-}
-
-
-// JTAG Read IDCODE register
-//   return: value read
-uint32_t IO_JTAG_ReadIDCode (void) {
+static uint8_t JTAG_Transfer_Opt(uint32_t request, uint32_t *data)
+{
+  uint32_t ack;
   uint32_t bit;
   uint32_t val;
   uint32_t n;
 
   PIN_TMS_SET();
-  JTAG_CYCLE_TCK();                         /* Select-DR-Scan */
+  JTAG_CYCLE_TCK(); /* Select-DR-Scan */
   PIN_TMS_CLR();
-  JTAG_CYCLE_TCK();                         /* Capture-DR */
-  JTAG_CYCLE_TCK();                         /* Shift-DR */
+  JTAG_CYCLE_TCK(); /* Capture-DR */
+  JTAG_CYCLE_TCK(); /* Shift-DR */
 
-  for (n = DAP_Data.jtag_dev.index; n; n--) {
-    JTAG_CYCLE_TCK();                       /* Bypass before data */
+  for (n = DAP_Data.jtag_dev.index; n; n--)
+  {
+    JTAG_CYCLE_TCK(); /* Bypass before data */
+  }
+
+  bit = JTAG_CYCLE_TDIO(request >> 1); /* Set RnW, Get ACK.0 */
+  ack = bit << 1;
+  bit = JTAG_CYCLE_TDIO(request >> 2); /* Set A2,  Get ACK.1 */
+  ack |= bit << 0;
+  bit = JTAG_CYCLE_TDIO(request >> 3); /* Set A3,  Get ACK.2 */
+  ack |= bit << 2;
+
+  if (ack != DAP_TRANSFER_OK)
+  {
+    /* Exit on error */
+    PIN_TMS_SET();
+    JTAG_CYCLE_TCK(); /* Exit1-DR */
+    goto exit;
+  }
+
+  if (request & DAP_TRANSFER_RnW)
+  {
+    /* Read Transfer */
+    val = 0U;
+    for (n = 31U; n; n--)
+    {
+      bit = JTAG_CYCLE_TDO(); /* Get D0..D30 */
+      val |= bit << 31;
+      val >>= 1;
+    }
+    n = DAP_Data.jtag_dev.count - DAP_Data.jtag_dev.index - 1U;
+    if (n)
+    {
+      bit = JTAG_CYCLE_TDO(); /* Get D31 */
+      for (--n; n; n--)
+      {
+        JTAG_CYCLE_TCK(); /* Bypass after data */
+      }
+      PIN_TMS_SET();
+      JTAG_CYCLE_TCK(); /* Bypass & Exit1-DR */
+    }
+    else
+    {
+      PIN_TMS_SET();
+      bit = JTAG_CYCLE_TDO(); /* Get D31 & Exit1-DR */
+    }
+    val |= bit << 31;
+    if (data)
+    {
+      *data = val;
+    }
+  }
+  else
+  {
+    /* Write Transfer */
+    val = *data;
+    for (n = 31U; n; n--)
+    {
+      JTAG_CYCLE_TDI(val); /* Set D0..D30 */
+      val >>= 1;
+    }
+    n = DAP_Data.jtag_dev.count - DAP_Data.jtag_dev.index - 1U;
+    if (n)
+    {
+      JTAG_CYCLE_TDI(val); /* Set D31 */
+      for (--n; n; n--)
+      {
+        JTAG_CYCLE_TCK(); /* Bypass after data */
+      }
+      PIN_TMS_SET();
+      JTAG_CYCLE_TCK(); /* Bypass & Exit1-DR */
+    }
+    else
+    {
+      PIN_TMS_SET();
+      JTAG_CYCLE_TDI(val); /* Set D31 & Exit1-DR */
+    }
+  }
+
+exit:
+  JTAG_CYCLE_TCK(); /* Update-DR */
+  PIN_TMS_CLR();
+  JTAG_CYCLE_TCK(); /* Idle */
+  PIN_TDI_OUT(1U);
+
+  /* Capture Timestamp */
+  if (request & DAP_TRANSFER_TIMESTAMP)
+  {
+    DAP_Data.timestamp = TIMESTAMP_GET();
+  }
+
+  /* Idle cycles */
+  n = DAP_Data.transfer.idle_cycles;
+  while (n--)
+  {
+    JTAG_CYCLE_TCK(); /* Idle */
+  }
+
+  return ((uint8_t)ack);
+}
+
+void IO_PORT_JTAG_SETUP(void)
+{
+  HPM_IOC->PAD[PIN_TCK].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0) | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK; /* as gpio*/
+  HPM_IOC->PAD[PIN_TMS].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);                                   /* as gpio*/
+  HPM_IOC->PAD[PIN_TDI].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);                                   /* as gpio*/
+  HPM_IOC->PAD[PIN_TDO].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
+  HPM_IOC->PAD[PIN_JTAG_TRST].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
+  HPM_IOC->PAD[PIN_SRST].FUNC_CTL = IOC_PAD_FUNC_CTL_ALT_SELECT_SET(0);
+
+  HPM_IOC->PAD[PIN_TCK].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+  HPM_IOC->PAD[PIN_TMS].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+  HPM_IOC->PAD[PIN_TDI].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+  HPM_IOC->PAD[PIN_TDO].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+  HPM_IOC->PAD[PIN_JTAG_TRST].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+  HPM_IOC->PAD[PIN_SRST].PAD_CTL = IOC_PAD_PAD_CTL_PRS_SET(2) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_SPD_SET(3);
+
+  gpiom_configure_pin_control_setting(PIN_TCK);
+  gpiom_configure_pin_control_setting(PIN_TMS);
+  gpiom_configure_pin_control_setting(PIN_TDI);
+  gpiom_configure_pin_control_setting(PIN_TDO);
+  gpiom_configure_pin_control_setting(PIN_JTAG_TRST);
+  gpiom_configure_pin_control_setting(PIN_SRST);
+
+  gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TCK), GPIO_GET_PIN_INDEX(PIN_TCK));
+  gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TMS), GPIO_GET_PIN_INDEX(PIN_TMS));
+  gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TDI), GPIO_GET_PIN_INDEX(PIN_TDI));
+  gpio_set_pin_input(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_TDO), GPIO_GET_PIN_INDEX(PIN_TDO));
+  gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_JTAG_TRST), GPIO_GET_PIN_INDEX(PIN_JTAG_TRST));
+  gpio_set_pin_output(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_SRST), GPIO_GET_PIN_INDEX(PIN_SRST));
+
+  gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_SRST), GPIO_GET_PIN_INDEX(PIN_SRST), !HSLink_Global.reset_level);
+  gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(PIN_JTAG_TRST), GPIO_GET_PIN_INDEX(PIN_JTAG_TRST), 1);
+
+  gpio_write_pin(PIN_GPIO, GPIO_GET_PORT_INDEX(SWDIO_DIR), GPIO_GET_PIN_INDEX(SWDIO_DIR), 1); // JTAG模式下SWDIO_DIR时钟为高
+}
+
+// JTAG Read IDCODE register
+//   return: value read
+uint32_t IO_JTAG_ReadIDCode(void)
+{
+  uint32_t bit;
+  uint32_t val;
+  uint32_t n;
+
+  PIN_TMS_SET();
+  JTAG_CYCLE_TCK(); /* Select-DR-Scan */
+  PIN_TMS_CLR();
+  JTAG_CYCLE_TCK(); /* Capture-DR */
+  JTAG_CYCLE_TCK(); /* Shift-DR */
+
+  for (n = DAP_Data.jtag_dev.index; n; n--)
+  {
+    JTAG_CYCLE_TCK(); /* Bypass before data */
   }
 
   val = 0U;
-  for (n = 31U; n; n--) {
-    JTAG_CYCLE_TDO(bit);                    /* Get D0..D30 */
-    val  |= bit << 31;
+  for (n = 31U; n; n--)
+  {
+    bit = JTAG_CYCLE_TDO(); /* Get D0..D30 */
+    val |= bit << 31;
     val >>= 1;
   }
   PIN_TMS_SET();
-  JTAG_CYCLE_TDO(bit);                      /* Get D31 & Exit1-DR */
+  bit = JTAG_CYCLE_TDO(); /* Get D31 & Exit1-DR */
   val |= bit << 31;
 
-  JTAG_CYCLE_TCK();                         /* Update-DR */
+  JTAG_CYCLE_TCK(); /* Update-DR */
   PIN_TMS_CLR();
-  JTAG_CYCLE_TCK();                         /* Idle */
+  JTAG_CYCLE_TCK(); /* Idle */
 
   return (val);
 }
 
-
 // JTAG Write ABORT register
 //   data:   value to write
 //   return: none
-void IO_JTAG_WriteAbort (uint32_t data) {
+void IO_JTAG_WriteAbort(uint32_t data)
+{
   uint32_t n;
 
   PIN_TMS_SET();
-  JTAG_CYCLE_TCK();                         /* Select-DR-Scan */
+  JTAG_CYCLE_TCK(); /* Select-DR-Scan */
   PIN_TMS_CLR();
-  JTAG_CYCLE_TCK();                         /* Capture-DR */
-  JTAG_CYCLE_TCK();                         /* Shift-DR */
+  JTAG_CYCLE_TCK(); /* Capture-DR */
+  JTAG_CYCLE_TCK(); /* Shift-DR */
 
-  for (n = DAP_Data.jtag_dev.index; n; n--) {
-    JTAG_CYCLE_TCK();                       /* Bypass before data */
+  for (n = DAP_Data.jtag_dev.index; n; n--)
+  {
+    JTAG_CYCLE_TCK(); /* Bypass before data */
   }
 
   PIN_TDI_OUT(0U);
-  JTAG_CYCLE_TCK();                         /* Set RnW=0 (Write) */
-  JTAG_CYCLE_TCK();                         /* Set A2=0 */
-  JTAG_CYCLE_TCK();                         /* Set A3=0 */
+  JTAG_CYCLE_TCK(); /* Set RnW=0 (Write) */
+  JTAG_CYCLE_TCK(); /* Set A2=0 */
+  JTAG_CYCLE_TCK(); /* Set A3=0 */
 
-  for (n = 31U; n; n--) {
-    JTAG_CYCLE_TDI(data);                   /* Set D0..D30 */
+  for (n = 31U; n; n--)
+  {
+    JTAG_CYCLE_TDI(data); /* Set D0..D30 */
     data >>= 1;
   }
   n = DAP_Data.jtag_dev.count - DAP_Data.jtag_dev.index - 1U;
-  if (n) {
-    JTAG_CYCLE_TDI(data);                   /* Set D31 */
-    for (--n; n; n--) {
-      JTAG_CYCLE_TCK();                     /* Bypass after data */
+  if (n)
+  {
+    JTAG_CYCLE_TDI(data); /* Set D31 */
+    for (--n; n; n--)
+    {
+      JTAG_CYCLE_TCK(); /* Bypass after data */
     }
     PIN_TMS_SET();
-    JTAG_CYCLE_TCK();                       /* Bypass & Exit1-DR */
-  } else {
+    JTAG_CYCLE_TCK(); /* Bypass & Exit1-DR */
+  }
+  else
+  {
     PIN_TMS_SET();
-    JTAG_CYCLE_TDI(data);                   /* Set D31 & Exit1-DR */
+    JTAG_CYCLE_TDI(data); /* Set D31 & Exit1-DR */
   }
 
-  JTAG_CYCLE_TCK();                         /* Update-DR */
+  JTAG_CYCLE_TCK(); /* Update-DR */
   PIN_TMS_CLR();
-  JTAG_CYCLE_TCK();                         /* Idle */
+  JTAG_CYCLE_TCK(); /* Idle */
   PIN_TDI_OUT(1U);
 }
-
 
 // JTAG Set IR
 //   ir:     IR value
 //   return: none
-void IO_JTAG_IR (uint32_t ir) {
-  if (DAP_Data.fast_clock) {
-    JTAG_IR_Fast(ir);
-  } else {
-    JTAG_IR_Slow(ir);
+void IO_JTAG_IR(uint32_t ir)
+{
+  if (DAP_Data.fast_clock)
+  {
+    JTAG_IR_Opt(ir);
+  }
+  else
+  {
+    JTAG_IR_Opt(ir);
   }
 }
-
 
 // JTAG Transfer I/O
 //   request: A[3:2] RnW APnDP
 //   data:    DATA[31:0]
 //   return:  ACK[2:0]
-uint8_t  IO_JTAG_Transfer(uint32_t request, uint32_t *data) {
-  if (DAP_Data.fast_clock) {
-    return JTAG_TransferFast(request, data);
-  } else {
-    return JTAG_TransferSlow(request, data);
+uint8_t IO_JTAG_Transfer(uint32_t request, uint32_t *data)
+{
+  if (DAP_Data.fast_clock)
+  {
+    return JTAG_Transfer_Opt(request, data);
+  }
+  else
+  {
+    return JTAG_Transfer_Opt(request, data);
   }
 }
 
-
-#endif  /* (DAP_JTAG != 0) */
+#endif /* (DAP_JTAG != 0) */

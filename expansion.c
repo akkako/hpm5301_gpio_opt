@@ -22,8 +22,6 @@
 
 volatile bool VREF_ENABLE = false;
 
-const double ADC_REF = 3.3;
-
 GPTMR_Type *const USER_PWM = HPM_GPTMR0;
 const clock_name_t USER_PWM_CLK = clock_gptmr0;
 const uint8_t PWM_CHANNEL = 2;
@@ -84,24 +82,10 @@ static void Power_PWM_Init(void)
     set_pwm_waveform_edge_aligned_duty(DEFAULT_PWM_DUTY); // 以目前的控制形式来看，电压越高，输出电压就越小，先给个较高的占空比
 }
 
-static void Power_Set_TVCC_Voltage(double voltage)
+static void Power_Set_TVCC_Voltage(void)
 {
-    // PWM DAC需要输出的电压
-    double dac;
-    dac = -voltage + (1974.0 / 395.0);
-
-    if (dac < 0)
-    {
-        dac = 0;
-    }
-    else if (dac > 3.3)
-    {
-        dac = 3.3;
-    }
-
-    // 计算PWM占空比
-    uint8_t duty = (uint8_t)(dac / 3.3 * 100);
-    set_pwm_waveform_edge_aligned_duty(duty);
+    // 3.3V
+    set_pwm_waveform_edge_aligned_duty(51);
 }
 
 static void ADC_Init()
@@ -133,44 +117,6 @@ static void ADC_Init()
     }
 }
 
-static void ADC_Channel_Init(USER_ADC_CHANNEL_t channel)
-{
-    adc16_channel_config_t ch_cfg;
-
-    /* get a default channel config */
-    adc16_get_channel_default_config(&ch_cfg);
-
-    /* initialize an ADC channel */
-    ch_cfg.ch = channel;
-    ch_cfg.sample_cycle = DEFAULT_ADC_CYCLE;
-
-    adc16_init_channel(USER_ADC, &ch_cfg);
-
-    adc16_set_nonblocking_read(USER_ADC);
-
-#if defined(ADC_SOC_BUSMODE_ENABLE_CTRL_SUPPORT) && ADC_SOC_BUSMODE_ENABLE_CTRL_SUPPORT
-    /* enable oneshot mode */
-    adc16_enable_oneshot_mode(USER_ADC);
-#endif
-}
-
-static uint16_t Get_ADC_Value(USER_ADC_CHANNEL_t channel)
-{
-    ADC_Channel_Init(channel);
-
-    uint16_t result = 0;
-
-    if (adc16_get_oneshot_result(USER_ADC, channel, &result) == status_success)
-    {
-        if (adc16_is_nonblocking_mode(USER_ADC))
-        {
-            adc16_get_oneshot_result(USER_ADC, channel, &result);
-        }
-    }
-
-    return result;
-}
-
 ATTR_ALWAYS_INLINE
 static inline void VREF_Init(void)
 {
@@ -183,24 +129,6 @@ static inline void TVCC_Init(void)
 {
     // TVCC 的输入是 PB09
     HPM_IOC->PAD[IOC_PAD_PB09].FUNC_CTL = IOC_PAD_FUNC_CTL_ANALOG_MASK;
-}
-
-static double Get_VREF_Voltage(void)
-{
-    const uint16_t this_adc = Get_ADC_Value(USER_ADC_VREF_CHANNEL);
-    static uint32_t sum = 0;
-    static uint16_t buf[8] = {};
-    static uint8_t i = 0;
-    sum += this_adc - buf[i];
-    buf[i] = this_adc;
-    i = (i + 1) % 8;
-    return (double)(sum >> 3) * ADC_REF / 65535 * 2;
-}
-
-ATTR_ALWAYS_INLINE
-static double inline Get_TVCC_Voltage(void)
-{
-    return (double)Get_ADC_Value(USER_ADC_TVCC_CHANNEL) * ADC_REF / 65535 * 2;
 }
 
 static void Power_Enable_Init(void)
@@ -265,20 +193,10 @@ void HSP_Loop(void)
     if (millis() - last_pwr_chk_time > 5)
     {
         last_pwr_chk_time = millis();
-        // 检测VREF电压
-        double vref = Get_VREF_Voltage();
 
-        if (vref > 1.6)
-        {
-            Power_Set_TVCC_Voltage(vref);
-            Power_Turn(true);
-            Port_Turn(true);
-            VREF_ENABLE = true;
-        }
-        else
         {
             Power_Turn(HSLink_Setting.power.power_on);
-            Power_Set_TVCC_Voltage(HSLink_Setting.power.vref); // TVCC恢复默认设置
+            Power_Set_TVCC_Voltage(); // TVCC恢复默认设置
             Port_Turn(HSLink_Setting.power.port_on);
             VREF_ENABLE = false;
         }

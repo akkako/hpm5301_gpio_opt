@@ -6,7 +6,6 @@
 #include "board.h"
 
 typedef struct {
-    double vref;
     bool power_on;
     bool port_on;
 } Setting_Power_t;

@@ -13,6 +13,14 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi);
 uint8_t SWD_Write(uint8_t header, uint32_t *data);
 uint8_t SWD_Read(uint8_t header, uint32_t *data);
 
+void SPI_SWJ_Sequence(uint32_t count, const uint8_t *data);
+void SPI_PORT_SWD_SETUP(void);
+void SPI_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi);
+uint8_t SPI_SWD_Write(uint8_t header, uint32_t *data);
+uint8_t SPI_SWD_Read(uint8_t header, uint32_t *data);
+
+
+uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data);
 uint8_t SWD_Write_Opt_60M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
 uint8_t SWD_Write_Opt_45M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);
 uint8_t SWD_Write_Opt_36M(uint8_t header, uint8_t turnaround, uint8_t data_phase, uint8_t idle_cycles, uint32_t *data);

@@ -202,8 +202,8 @@ extern void     JTAG_IR         (uint32_t ir);
 extern uint32_t JTAG_ReadIDCode (void);
 extern void     JTAG_WriteAbort (uint32_t data);
 extern uint8_t  JTAG_Transfer   (uint32_t request, uint32_t *data);
-extern uint8_t  SWD_Read    (uint8_t header, uint32_t *data);
-extern uint8_t  SWD_Write   (uint8_t header, uint32_t *data);
+extern uint8_t  SWD_Read        (uint8_t header, uint32_t *data);
+extern uint8_t  SWD_Write       (uint8_t header, uint32_t *data);
 
 extern void     Delayms         (uint32_t delay);
 

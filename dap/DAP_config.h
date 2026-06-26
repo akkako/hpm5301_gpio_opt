@@ -298,16 +298,22 @@ __STATIC_INLINE uint8_t DAP_GetProductFirmwareVersionString(char *str)
 #include "expansion.h"
 #include "reset_way.h"
 
-#define PIN_GPIOM_BASE HPM_GPIOM
-#define PIN_GPIO HPM_FGPIO
-#define PIN_GPIOM gpiom_core0_fast
+#define JTAG_SPI_BASE               HPM_SPI2
+#define JTAG_SPI_BASE_CLOCK_NAME    clock_spi2
 
-#define PIN_TCK_SLV IOC_PAD_PA27
-#define PIN_TCK IOC_PAD_PB11
-#define PIN_TMS_IN IOC_PAD_PA28
-#define PIN_TMS IOC_PAD_PA29
-#define PIN_TDI IOC_PAD_PB13
-#define PIN_TDO IOC_PAD_PB12
+#define SWD_SPI_BASE               HPM_SPI1
+#define SWD_SPI_BASE_CLOCK_NAME    clock_spi1
+
+#define PIN_GPIOM_BASE    HPM_GPIOM
+#define PIN_GPIO          HPM_FGPIO
+#define PIN_GPIOM         gpiom_core0_fast
+
+#define PIN_TCK_SLV       IOC_PAD_PA27
+#define PIN_TCK           IOC_PAD_PB11
+#define PIN_TMS_IN        IOC_PAD_PA28
+#define PIN_TMS           IOC_PAD_PA29
+#define PIN_TDI           IOC_PAD_PB13
+#define PIN_TDO           IOC_PAD_PB12
 
 //**************************************************************************************************
 /**

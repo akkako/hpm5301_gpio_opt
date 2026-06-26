@@ -6,7 +6,6 @@
 
 const HSLink_Setting_t default_setting = {
     .power = {
-        .vref = 3.3,
         .power_on = false,
         .port_on = false,
     },
@@ -15,7 +14,6 @@ const HSLink_Setting_t default_setting = {
 
 HSLink_Setting_t HSLink_Setting = {
     .power = {
-        .vref = 3.3,
         .power_on = false,
         .port_on = false,
     },

@@ -392,7 +392,7 @@ void IO_SWD_Sequence(uint32_t info, const uint8_t *swdo, uint8_t *swdi)
   x;                \
   x;
 
-static uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
+uint8_t SWD_Read_Opt(uint8_t header, uint32_t *data)
 {
   uint32_t ack = 0;
   uint32_t bit;
@@ -536,47 +536,6 @@ label_error:
   PIN_SWDIO_OUT(1U);
   // printf("ack:%d\r\n", ack);
   return ((uint8_t)ack);
-}
-
-
-uint8_t SWD_Read(uint8_t header, uint32_t *data)
-{
-  if (DAP_Data.fast_clock)
-  {
-    return SWD_Read_Opt(header, data);
-  }
-  else
-  {
-    return SWD_Read_Opt(header, data);
-  }
-}
-
-uint8_t SWD_Write(uint8_t header, uint32_t *data)
-{
-  if (DAP_Data.clock_speed >= 60000000)
-  {
-    return SWD_Write_Opt_60M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
-  else if (DAP_Data.clock_speed >= 45000000)
-  {
-    return SWD_Write_Opt_45M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
-  else if (DAP_Data.clock_speed >= 36000000)
-  {
-    return SWD_Write_Opt_36M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
-  else if (DAP_Data.clock_speed >= 30000000)
-  {
-    return SWD_Write_Opt_30M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
-  else if (DAP_Data.clock_speed >= 20000000)
-  {
-    return SWD_Write_Opt_20M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
-  else
-  {
-    return SWD_Write_Opt_10M(header, DAP_Data.swd_conf.turnaround, DAP_Data.swd_conf.data_phase, DAP_Data.transfer.idle_cycles, data);
-  }
 }
 
 #endif /* (DAP_SWD != 0) */

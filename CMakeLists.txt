@@ -73,15 +73,18 @@ sdk_compile_definitions(-DSWDIO_DIR=IOC_PAD_PA30)
 sdk_app_inc(dap)
 sdk_app_inc(dap/SW_DP)
 sdk_app_src(dap/SW_DP/SW_DP.c)
+sdk_app_src(dap/SW_DP/SW_DP_SPI.c)
 sdk_app_src(dap/SW_DP/SW_DP_IO.c)
 sdk_app_src(dap/SW_DP/SWD_Write_Opt.c)
 
 sdk_app_inc(dap/JTAG_DP)
 sdk_app_src(dap/JTAG_DP/JTAG_DP.c)
+sdk_app_src(dap/JTAG_DP/JTAG_DP_SPI.c)
 sdk_app_src(dap/JTAG_DP/JTAG_DP_IO.c)
 
 sdk_app_src(dap/DAP_vendor.c)
 sdk_app_src(dap/DAP.c)
+sdk_app_src(dap/dp_common.c)
 
 # sdk_app_src(dap/swd_host/swd_host.c)
 sdk_app_inc(dap/swd_host)
@@ -102,7 +105,7 @@ sdk_app_src(usb/hid_comm.c)
 sdk_app_src(usb/usb2uart.c)
 sdk_app_src(usb/dap_main.c)
 
-sdk_compile_options(-Ofast -flto)
+sdk_compile_options(-Ofast)
 
 sdk_ld_options("-lm")
 
